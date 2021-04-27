@@ -9,15 +9,6 @@ import (
 	"path/filepath"
 )
 
-type Account string
-
-type Transaction struct {
-	From  Account `json:"from"`
-	To    Account `json:"to"`
-	Value uint    `json:"value"`
-	Data  string  `json:"data"`
-}
-
 type Genesis struct {
 	Balances map[Account]uint `json:"balances"`
 }
@@ -28,10 +19,6 @@ type State struct {
 	txMempool []Transaction
 
 	dbFile *os.File
-}
-
-func (t Transaction) IsReward() bool {
-	return t.Data == "reward"
 }
 
 func NewStateFromDisk() (*State, error) {
@@ -142,4 +129,9 @@ func (s *State) Persist() error {
 	}
 
 	return nil
+}
+
+// Close Closes the DB file 
+func (s *State) Close() {
+	s.dbFile.Close()
 }
