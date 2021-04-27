@@ -4,14 +4,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
-
-type Genesis struct {
-	Balances map[Account]uint `json:"balances"`
-}
 
 // Holds all user balances and transaction events
 type State struct {
@@ -65,22 +60,6 @@ func NewStateFromDisk() (*State, error) {
 	return state, nil
 }
 
-// Opens genesis file path
-func loadGenesis(path string) (Genesis, error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return Genesis{}, err
-	}
-
-	var loadedGenesis Genesis
-	err = json.Unmarshal(content, &loadedGenesis)
-	if err != nil {
-		return Genesis{}, err
-	}
-
-	return loadedGenesis, nil
-}
-
 // apply Changes and validates the state
 func (s *State) apply(tx Transaction) error {
 	if tx.IsReward() {
@@ -131,7 +110,7 @@ func (s *State) Persist() error {
 	return nil
 }
 
-// Close Closes the DB file 
+// Close Closes the DB file
 func (s *State) Close() {
 	s.dbFile.Close()
 }
