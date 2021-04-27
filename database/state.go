@@ -2,8 +2,10 @@ package database
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -13,7 +15,14 @@ type State struct {
 	Balances  map[Account]uint
 	txMempool []Transaction
 
-	dbFile *os.File
+	dbFile   *os.File
+	snapshot Snapshot
+}
+
+type Snapshot [32]byte
+
+func (s *State) LatestSnapshot() Snapshot {
+	return s.snapshot
 }
 
 func NewStateFromDisk() (*State, error) {
@@ -40,7 +49,7 @@ func NewStateFromDisk() (*State, error) {
 	}
 
 	scanner := bufio.NewScanner(f)
-	state := &State{balances, make([]Transaction, 0), f}
+	state := &State{balances, make([]Transaction, 0), f, Snapshot{}}
 
 	// iterate through the transaction DB file line by line
 	for scanner.Scan() {
@@ -55,6 +64,11 @@ func NewStateFromDisk() (*State, error) {
 		if err := state.apply(tx); err != nil {
 			return nil, err
 		}
+	}
+
+	err = state.doSnapShot()
+	if err !=nil {
+		return nil, err
 	}
 
 	return state, nil
@@ -88,29 +102,54 @@ func (s *State) Add(tx Transaction) error {
 	return nil
 }
 
-// Persisting the transactions to disk
-func (s *State) Persist() error {
+// Persisting and hashing the transactions to disk 
+func (s *State) Persist() (Snapshot, error) {
 	mempool := make([]Transaction, len(s.txMempool))
 	copy(mempool, s.txMempool)
 
 	for i := 0; i < len(mempool); i++ {
 		txJson, err := json.Marshal(mempool[i])
 		if err != nil {
-			return err
+			return Snapshot{}, err
 		}
 
+		fmt.Printf("Persisting new Transaction to disk: \n")
+		fmt.Printf("\t%s\n", txJson)
 		if _, err = s.dbFile.Write(append(txJson, '\n')); err != nil {
-			return err
+			return Snapshot{}, err
 		}
+
+		err = s.doSnapShot()
+		if err != nil {
+			return Snapshot{}, err
+		}
+		fmt.Printf("New DB Snapshot: %x\n", s.snapshot)
 
 		// Remove the Transaction written to a file from the mempool
 		s.txMempool = s.txMempool[1:]
 	}
 
-	return nil
+	return s.snapshot, nil
 }
 
 // Close Closes the DB file
 func (s *State) Close() {
 	s.dbFile.Close()
+}
+
+// doSnapShot records the contents of the entire blockchain ledger
+func (s *State) doSnapShot() error {
+	// Re-read the whole file from the first byte
+	_, err := s.dbFile.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+
+	txsData, err := ioutil.ReadAll(s.dbFile)
+	if err != nil {
+		return err
+	}
+	s.snapshot = sha256.Sum256(txsData)
+
+	return nil
 }

@@ -6,6 +6,4 @@
 {"from":"kinya","to":"kamtu","value":30,"data":""}
 {"from":"kinya","to":"babayaga","value":800,"data":"reward"}
 {"from":"kinya","to":"babayaga","value":1,"data":""}
-{"from":"kinya","to":"kamtu","value":190,"data":""}
-{"from":"kamtu","to":"joan","value":19,"data":""}
-{"from":"babayaga","to":"caesar","value":1000,"data":""}
+{"from":"kinya","to":"kinya","value":100,"data":"reward"}
