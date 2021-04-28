@@ -42,7 +42,12 @@ func transactionAddCmd() *cobra.Command {
 			fromAcc := database.NewAccount(from)
 			toAcc := database.NewAccount(to)
 
-			transaction := database.NewTransaction(fromAcc, toAcc, value, data)
+			transaction := database.NewTransaction(
+				fromAcc,
+				toAcc,
+				value,
+				data,
+			)
 
 			state, err := database.NewStateFromDisk()
 			if err != nil {
@@ -75,7 +80,7 @@ func transactionAddCmd() *cobra.Command {
 	cmd.Flags().String(flagTo, "", "To what account to send tokens")
 	cmd.MarkFlagRequired(flagTo)
 
-	cmd.Flags().Uint(flagValue, 0 , "How many Tokens you send")
+	cmd.Flags().Uint(flagValue, 0, "How many Tokens you send")
 	cmd.MarkFlagRequired(flagValue)
 
 	cmd.Flags().String(flagData, "", "Transaction data")
