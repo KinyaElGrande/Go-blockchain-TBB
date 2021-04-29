@@ -5,6 +5,16 @@ import (
 	"io/ioutil"
 )
 
+var genesisJson = `
+{
+    "genesis_time": "2021-03-18T00:00:00.000000000Z",
+    "chain_id": "tbb-ledger",
+    "balances": {
+        "kinya": 10000000
+    }
+}
+`
+
 type Genesis struct {
 	Balances map[Account]uint `json:"balances"`
 }
@@ -23,4 +33,8 @@ func loadGenesis(path string) (Genesis, error) {
 	}
 
 	return loadedGenesis, nil
+}
+
+func writeGenesisToDisk(path string) error {
+	return ioutil.WriteFile(path, []byte(genesisJson), 0644)
 }

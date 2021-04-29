@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -37,18 +36,18 @@ func (s *State) AddTx(tx Transaction) error {
 		return err
 	}
 
-	s.txMempool =  append(s.txMempool, tx)
+	s.txMempool = append(s.txMempool, tx)
 
 	return nil
 }
 
-func NewStateFromDisk() (*State, error) {
-	cwd, err := os.Getwd()
+func NewStateFromDisk(dataDir string) (*State, error) {
+	err := initDataDirIfNotExists(dataDir)
 	if err != nil {
 		return nil, err
 	}
 
-	gen, err := loadGenesis(filepath.Join(cwd, "database", "genesis.json"))
+	gen, err := loadGenesis(getGenesisJsonFilePath(dataDir))
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +57,7 @@ func NewStateFromDisk() (*State, error) {
 		balances[account] = balance
 	}
 
-	f, err := os.OpenFile(filepath.Join(cwd, "database", "block.db"), os.O_APPEND|os.O_RDWR, 0600)
+	f, err := os.OpenFile(getBlocksDBFilePath(dataDir), os.O_APPEND|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +85,6 @@ func NewStateFromDisk() (*State, error) {
 
 		state.latestBlockHash = blockFs.Key
 	}
-
 
 	return state, nil
 }
@@ -123,7 +121,7 @@ func (s *State) Add(tx Transaction) error {
 func (s *State) Persist() (Hash, error) {
 	// Create a new Block with only the new Transactions
 	block := NewBlock(s.latestBlockHash, uint64(time.Now().Unix()), s.txMempool)
-	
+
 	blockHash, err := block.Hash()
 	if err != nil {
 		return Hash{}, err

@@ -49,7 +49,8 @@ func transactionAddCmd() *cobra.Command {
 				data,
 			)
 
-			state, err := database.NewStateFromDisk()
+			dataDir, _ := cmd.Flags().GetString(flagDataDir)
+			state, err := database.NewStateFromDisk(dataDir)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
