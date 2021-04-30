@@ -2,7 +2,7 @@ package database
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 )
 
 var genesisJson = `
@@ -21,7 +21,7 @@ type Genesis struct {
 
 // Opens genesis file path
 func loadGenesis(path string) (Genesis, error) {
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return Genesis{}, err
 	}
@@ -36,5 +36,5 @@ func loadGenesis(path string) (Genesis, error) {
 }
 
 func writeGenesisToDisk(path string) error {
-	return ioutil.WriteFile(path, []byte(genesisJson), 0644)
+	return os.WriteFile(path, []byte(genesisJson), 0644)
 }
