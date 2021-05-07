@@ -36,11 +36,11 @@ func balancesListCmd() *cobra.Command {
 				os.Exit(1)
 			}
 			defer state.Close()
-	
+
 			fmt.Printf("Accounts Balance at %x\n", state.LatestBlockHash())
 			fmt.Println("__________________")
 			fmt.Println("")
-	
+
 			for account, balance := range state.Balances {
 				fmt.Println(fmt.Sprintf("%s: %d", account, balance))
 			}
@@ -48,6 +48,6 @@ func balancesListCmd() *cobra.Command {
 	}
 
 	addDefaultRequiredFlags(balancesListCmd)
-	
+
 	return balancesListCmd
 }
