@@ -24,6 +24,7 @@ type Block struct {
 
 type BlockHeader struct {
 	Parent Hash   `json:"parent"`
+	Height uint64 `json:"height"`
 	Time   uint64 `json:"time"`
 }
 
@@ -41,7 +42,6 @@ func (b Block) Hash() (Hash, error) {
 	return sha256.Sum256(blockJson), nil
 }
 
-func NewBlock(parent Hash, time uint64, txs []Transaction) Block {
-	return Block{BlockHeader{parent, time}, txs}
+func NewBlock(parent Hash, height uint64, time uint64, txs []Transaction) Block {
+	return Block{BlockHeader{parent, height, time}, txs}
 }
-

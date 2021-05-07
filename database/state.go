@@ -15,10 +15,23 @@ type State struct {
 
 	dbFile          *os.File
 	latestBlockHash Hash
+	latestBlock     Block
+	hasGenesisBlock bool
 }
 
 func (s *State) LatestBlockHash() Hash {
 	return s.latestBlockHash
+}
+
+func (s *State) LatestBlock() Block {
+	return s.latestBlock
+}
+
+func (s *State) NextBlockNumber() uint64 {
+	if !s.hasGenesisBlock {
+		return uint64(0)
+	}
+	return s.latestBlock.Header.Height + 1
 }
 
 func (s *State) AddBlock(b Block) error {
@@ -63,7 +76,7 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 	}
 
 	scanner := bufio.NewScanner(f)
-	state := &State{balances, make([]Transaction, 0), f, Hash{}}
+	state := &State{balances, make([]Transaction, 0), f, Hash{}, Block{}, false}
 
 	// iterate through the block DB file line by line
 	for scanner.Scan() {
@@ -72,6 +85,11 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 		}
 
 		blockFsJson := scanner.Bytes()
+
+		if len(blockFsJson) == 0 {
+			break
+		}
+
 		var blockFs BlockFs
 		err = json.Unmarshal(blockFsJson, &blockFs)
 		if err != nil {
@@ -84,6 +102,7 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 		}
 
 		state.latestBlockHash = blockFs.Key
+		// state.latestBlock = blockFs
 	}
 
 	return state, nil
@@ -120,7 +139,12 @@ func (s *State) Add(tx Transaction) error {
 // Persisting and hashing the transactions to disk
 func (s *State) Persist() (Hash, error) {
 	// Create a new Block with only the new Transactions
-	block := NewBlock(s.latestBlockHash, uint64(time.Now().Unix()), s.txMempool)
+	block := NewBlock(
+		s.latestBlockHash,
+		s.latestBlock.Header.Height+1, // increases Block Height
+		uint64(time.Now().Unix()),
+		s.txMempool,
+	)
 
 	blockHash, err := block.Hash()
 	if err != nil {
@@ -165,3 +189,9 @@ func (s *State) applyBlock(b Block) error {
 
 	return nil
 }
+
+// func applyTXs(txs []Transaction, s *State) error {
+// 	for _, tx := range txs {
+
+// 	}
+// }

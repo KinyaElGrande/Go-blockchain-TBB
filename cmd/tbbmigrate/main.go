@@ -19,6 +19,7 @@ func main() {
 
 	block0 := database.NewBlock(
 		database.Hash{},
+		state.NextBlockNumber(),
 		uint64(time.Now().Unix()),
 		[]database.Transaction{
 			database.NewTransaction("kinya", "elgrande", 300, ""),
