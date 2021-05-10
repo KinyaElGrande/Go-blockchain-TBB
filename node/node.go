@@ -6,8 +6,6 @@ import (
 	"github.com/KinyaElGrande/TBB/database"
 )
 
-const endpointStatus = "/node/status"
-
 type Node struct {
 	dataDir string
 	port    uint64
@@ -38,6 +36,10 @@ func New(dataDir string, port uint64, bootstrap PeerNode) *Node {
 
 func NewPeerNode(ip string, port uint64, isBootstrap bool, isActive bool) PeerNode {
 	return PeerNode{ip, port, isBootstrap, isActive}
+}
+
+func (n *Node) RemovePeer(peer PeerNode) {
+	delete(n.knownPeers, peer.TcpAddress())
 }
 
 func (pn PeerNode) TcpAddress() string {

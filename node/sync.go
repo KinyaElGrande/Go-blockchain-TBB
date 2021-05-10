@@ -9,7 +9,7 @@ import (
 
 // sync searches for new network's peeers for every 45 seconds
 func (n *Node) sync(ctx context.Context) error {
-	ticker := time.NewTicker(45 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 
 	for {
 		select {
@@ -19,6 +19,19 @@ func (n *Node) sync(ctx context.Context) error {
 			n.fetchNewBlocksAndPeers()
 		case <-ctx.Done():
 			ticker.Stop()
+		}
+	}
+}
+
+func (n *Node) doSync() {
+	for _, peer := range n.knownPeers {
+		status, err := queryPeerStatus(peer)
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			fmt.Printf("Peer '%s' was removed from KnownPeers\n", peer.TcpAddress())
+		
+			n.RemovePeer(peer)
+			continue
 		}
 	}
 }
@@ -63,4 +76,16 @@ func queryPeerStatus(peer PeerNode) (StatusRes, error) {
 	}
 
 	return statusRes, nil
+}
+
+func (n *Node) joinKnownPeers(peer PeerNode) error {
+	if peer.IsActive {
+		return nil
+	}
+
+	url := fmt.Sprintf(
+		"http://%s%s?%s=%s&%s=%d",
+		peer.TcpAddress(),
+		endPointAddPeer,
+	)
 }

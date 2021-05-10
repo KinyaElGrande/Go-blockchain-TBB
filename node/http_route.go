@@ -11,6 +11,9 @@ import (
 )
 
 const httpPort = 8000
+const endpointStatus = "/node/status"
+const endpointSync = "/node/sync"
+const endpointSyncQueryKeyFromBlock = "fromBlock"
 
 type ErrorRes struct {
 	Error string `json:"error"`
@@ -38,6 +41,10 @@ type TxAddRes struct {
 	Hash database.Hash `json:"block_hash"`
 }
 
+type SyncRes struct {
+	Blocks []database.Block `json:"blocks"`
+}
+
 func (n *Node) Run() error {
 	ctx := context.Background()
 	fmt.Println(fmt.Sprintf("Listening on HTTP port: %d", httpPort))
@@ -58,6 +65,10 @@ func (n *Node) Run() error {
 
 	http.HandleFunc(endpointStatus, func(w http.ResponseWriter, r *http.Request) {
 		statusHandler(w, r, n)
+	})
+
+	http.HandleFunc(endpointSync, func(w http.ResponseWriter, r *http.Request) {
+		syncHandler(w, r, n.dataDir)
 	})
 
 	http.HandleFunc("/transaction/add", func(w http.ResponseWriter, r *http.Request) {
@@ -160,4 +171,24 @@ func statusHandler(w http.ResponseWriter, r *http.Request, node *Node) {
 	}
 
 	writeRes(w, res)
+}
+
+func syncHandler(w http.ResponseWriter, r *http.Request, dataDir string) {
+	reqHash := r.URL.Query().Get(endpointSyncQueryKeyFromBlock)
+
+	hash := database.Hash{}
+	err := hash.UnmarshalText([]byte(reqHash))
+	if err != nil {
+		writeErrRes(w, err)
+		return
+	}
+
+	// Read newer blocks from DB
+	blocks, err := database.GetBlocksAfter(hash, dataDir)
+	if err != nil {
+		writeErrRes(w, err)
+		return
+	}
+
+	writeRes(w, SyncRes{Blocks: blocks})
 }

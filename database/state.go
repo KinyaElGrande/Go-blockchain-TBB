@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 )
 
@@ -34,14 +35,58 @@ func (s *State) NextBlockNumber() uint64 {
 	return s.latestBlock.Header.Height + 1
 }
 
-func (s *State) AddBlock(b Block) error {
-	for _, tx := range b.TXs {
-		if err := s.AddTx(tx); err != nil {
-			return err
-		}
+func (s *State) AddBlock(b Block) (Hash, error) {
+	pendingState := s.copy()
+
+	err := applyBlock(b, pendingState)
+	if err != nil {
+		return Hash{}, nil
 	}
 
-	return nil
+	blockHash, err := b.Hash()
+	if err != nil {
+		return Hash{}, nil
+	}
+
+	blockFs := BlockFs{blockHash, b}
+
+	blockFsJson, err := json.Marshal(blockFs)
+	if err != nil {
+		return Hash{}, nil
+	}
+
+	fmt.Printf("Persisting new block to disk: \n")
+	fmt.Printf("\t%s\n", blockFsJson)
+
+	_, err = s.dbFile.Write(append(blockFsJson, '\n'))
+	if err != nil {
+		return Hash{}, nil
+	}
+
+	s.latestBlockHash = blockHash
+	s.latestBlock = b
+	// Reset the mempool
+	s.txMempool = []Transaction{}
+
+	return s.latestBlockHash, nil
+}
+
+func (s *State) copy() State {
+	c := State{}
+	c.latestBlock = s.latestBlock
+	c.latestBlockHash = s.latestBlockHash
+	c.txMempool = make([]Transaction, len(s.txMempool))
+	c.Balances = make(map[Account]uint)
+
+	for acc, balance := range s.Balances {
+		c.Balances[acc] = balance
+	}
+
+	for _, tx := range s.txMempool {
+		c.txMempool = append(c.txMempool, tx)
+	}
+
+	return c
 }
 
 func (s *State) AddTx(tx Transaction) error {
@@ -102,27 +147,10 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 		}
 
 		state.latestBlockHash = blockFs.Key
-		// state.latestBlock = blockFs
+		state.latestBlock = blockFs.Value
 	}
 
 	return state, nil
-}
-
-// apply Changes and validates the state
-func (s *State) apply(tx Transaction) error {
-	if tx.IsReward() {
-		s.Balances[tx.To] += tx.Value
-		return nil
-	}
-
-	if tx.Value > s.Balances[tx.From] {
-		return fmt.Errorf("Insufficient Balance!")
-	}
-
-	s.Balances[tx.From] -= tx.Value
-	s.Balances[tx.To] += tx.Value
-
-	return nil
 }
 
 // Adding new transactions to the mempool
@@ -168,7 +196,7 @@ func (s *State) Persist() (Hash, error) {
 	}
 
 	s.latestBlockHash = blockHash
-
+	s.latestBlock = block
 	// Reset the mempool
 	s.txMempool = []Transaction{}
 
@@ -180,9 +208,26 @@ func (s *State) Close() {
 	s.dbFile.Close()
 }
 
-func (s *State) applyBlock(b Block) error {
-	for _, tx := range b.TXs {
-		if err := s.apply(tx); err != nil {
+// applyBlock validates block meta + payload
+func applyBlock(b Block, s State) error {
+	nextExpectedBlockHeight := s.latestBlock.Header.Height + 1
+
+	if s.hasGenesisBlock && b.Header.Height != nextExpectedBlockHeight {
+		return fmt.Errorf("Next expected block must be '%d' and not '%d'", nextExpectedBlockHeight, b.Header.Height)
+	}
+
+	// validate the incoming block parent hash equals the latest known hash
+	if s.hasGenesisBlock && s.latestBlock.Header.Height > 0 && !reflect.DeepEqual(b.Header.Parent, s.latestBlockHash) {
+		return fmt.Errorf("Next block parent hash must be '%x' and not '%x' ", s.latestBlockHash, b.Header.Parent)
+	}
+
+	return applyTXs(b.TXs, &s)
+}
+
+func applyTXs(txs []Transaction, s *State) error {
+	for _, tx := range txs {
+		err := applyTx(tx, s)
+		if err != nil {
 			return err
 		}
 	}
@@ -190,8 +235,23 @@ func (s *State) applyBlock(b Block) error {
 	return nil
 }
 
-// func applyTXs(txs []Transaction, s *State) error {
-// 	for _, tx := range txs {
+// applyTx replays transactions to verify balances
+func applyTx(tx Transaction, s *State) error {
+	if tx.IsReward() {
+		s.Balances[tx.To] += tx.Value
+		return nil
+	}
 
-// 	}
-// }
+	if tx.Value > s.Balances[tx.From] {
+		return fmt.Errorf("wrong TX. Sender '%s' balance is %d TBB. Tx cost is %d",
+			tx.From,
+			s.Balances[tx.From],
+			tx.Value,
+		)
+	}
+
+	s.Balances[tx.From] -= tx.Value
+	s.Balances[tx.To] += tx.Value
+
+	return nil
+}
